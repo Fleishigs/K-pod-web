@@ -9,22 +9,25 @@ let currentPage = 'home'; // Track current page
 // Pages
 const homePage = document.getElementById('homePage');
 const podcastPage = document.getElementById('podcastPage');
-const playerPage = document.getElementById('playerPage');
 
 // Navigation elements
 const topNav = document.querySelector('.top-nav');
 const navBackBtn = document.getElementById('navBackBtn');
 const navLogo = document.getElementById('navLogo');
 
+// Audio element
+const audio = document.getElementById('audio');
+
 // Mini player elements
 const miniPlayer = document.getElementById('miniPlayer');
-const miniPlayerClick = document.getElementById('miniPlayerClick');
 const miniPlayerArtwork = document.getElementById('miniPlayerArtwork');
 const miniPlayerTitle = document.getElementById('miniPlayerTitle');
 const miniPlayerPodcast = document.getElementById('miniPlayerPodcast');
 const miniPlayPause = document.getElementById('miniPlayPause');
 const miniPlayIcon = document.getElementById('miniPlayIcon');
 const miniPauseIcon = document.getElementById('miniPauseIcon');
+const miniRewind = document.getElementById('miniRewind');
+const miniForward = document.getElementById('miniForward');
 const miniPlayerClose = document.getElementById('miniPlayerClose');
 const miniProgressFill = document.getElementById('miniProgressFill');
 
@@ -80,16 +83,11 @@ function setupEventListeners() {
         updateNavigation();
     });
     
-    // Mini player
-    miniPlayerClick.addEventListener('click', openFullPlayer);
-    miniPlayPause.addEventListener('click', (e) => {
-        e.stopPropagation();
-        togglePlayPause();
-    });
-    miniPlayerClose.addEventListener('click', (e) => {
-        e.stopPropagation();
-        closeMiniPlayer();
-    });
+    // Mini player controls
+    miniPlayPause.addEventListener('click', togglePlayPause);
+    miniRewind.addEventListener('click', () => audio.currentTime = Math.max(0, audio.currentTime - 15));
+    miniForward.addEventListener('click', () => audio.currentTime = Math.min(audio.duration, audio.currentTime + 30));
+    miniPlayerClose.addEventListener('click', closeMiniPlayer);
     
     // Refresh button - use setTimeout to ensure DOM is loaded
     setTimeout(() => {
@@ -100,27 +98,17 @@ function setupEventListeners() {
     }, 100);
     
     episodeSearch.addEventListener('input', searchEpisodes);
-    playPause.addEventListener('click', togglePlayPause);
-    rewind.addEventListener('click', () => audio.currentTime = Math.max(0, audio.currentTime - 15));
-    forward.addEventListener('click', () => audio.currentTime = Math.min(audio.duration, audio.currentTime + 30));
     
+    // Audio events
     audio.addEventListener('timeupdate', updateProgress);
-    audio.addEventListener('loadedmetadata', updateDuration);
     audio.addEventListener('play', () => {
-        playIcon.classList.add('hidden');
-        pauseIcon.classList.remove('hidden');
         miniPlayIcon.classList.add('hidden');
         miniPauseIcon.classList.remove('hidden');
     });
     audio.addEventListener('pause', () => {
-        playIcon.classList.remove('hidden');
-        pauseIcon.classList.add('hidden');
         miniPlayIcon.classList.remove('hidden');
         miniPauseIcon.classList.add('hidden');
     });
-    
-    progressBar.addEventListener('click', seek);
-    volumeSlider.addEventListener('input', () => audio.volume = volumeSlider.value / 100);
 }
 
 // Navigation
@@ -131,16 +119,8 @@ function showPage(page) {
     // Update current page state
     if (page === homePage) currentPage = 'home';
     else if (page === podcastPage) currentPage = 'podcast';
-    else if (page === playerPage) currentPage = 'player';
     
     updateNavigation();
-    
-    // Show/hide mini player based on page
-    if (currentPage === 'player') {
-        hideMiniPlayer();
-    } else if (currentEpisode && audio.src) {
-        showMiniPlayer();
-    }
 }
 
 function updateNavigation() {
@@ -153,14 +133,7 @@ function updateNavigation() {
 }
 
 function handleBackButton() {
-    if (currentPage === 'player') {
-        // Go back to podcast page if we have a podcast, otherwise home
-        if (currentPodcast) {
-            showPage(podcastPage);
-        } else {
-            goHome();
-        }
-    } else if (currentPage === 'podcast') {
+    if (currentPage === 'podcast') {
         goHome();
     }
 }
@@ -172,19 +145,9 @@ function goHome() {
     filteredEpisodes = [];
 }
 
-function closePlayer() {
-    if (currentPodcast) {
-        showPage(podcastPage);
-    } else {
-        goHome();
-    }
-}
-
 // Mini Player Functions
 function showMiniPlayer() {
-    if (currentPage !== 'player') {
-        miniPlayer.classList.remove('hidden');
-    }
+    miniPlayer.classList.remove('hidden');
 }
 
 function hideMiniPlayer() {
@@ -208,18 +171,26 @@ function updateMiniPlayer() {
     showMiniPlayer();
 }
 
-function openFullPlayer() {
-    if (currentEpisode) {
-        showPage(playerPage);
-        hideMiniPlayer();
-    }
-}
-
 function closeMiniPlayer() {
     audio.pause();
     audio.src = '';
     hideMiniPlayer();
     currentEpisode = null;
+}
+
+function togglePlayPause() {
+    if (audio.paused) {
+        audio.play();
+    } else {
+        audio.pause();
+    }
+}
+
+function updateProgress() {
+    if (audio.duration) {
+        const percent = (audio.currentTime / audio.duration) * 100;
+        miniProgressFill.style.width = `${percent}%`;
+    }
 }
 
 function refreshEpisodes() {
@@ -246,18 +217,24 @@ function refreshEpisodes() {
 // Load Podcasts
 async function loadPodcasts() {
     try {
+        console.log('📥 Starting to load podcasts...');
         const text = await fetchWithFallback('https://raw.githubusercontent.com/Fleishigs/Podcast-list/main/podcasts.json');
+        console.log('✅ Got response, cleaning JSON...');
+        
         const cleanedText = text.replace(/,(\s*[\]}])/g, '$1');
         const data = JSON.parse(cleanedText);
         
+        console.log('✅ Parsed JSON:', data);
+        
         if (data && data.podcasts && Array.isArray(data.podcasts)) {
             podcasts = data.podcasts;
+            console.log(`✅ Loaded ${podcasts.length} podcasts`);
             renderPodcasts();
         } else {
-            throw new Error('Invalid data format');
+            throw new Error('Invalid data format - missing podcasts array');
         }
     } catch (error) {
-        console.error('Error loading podcasts:', error);
+        console.error('❌ Error loading podcasts:', error);
         loading.innerHTML = `
             <div class="empty-state">
                 <h3>Couldn't load podcasts</h3>
@@ -269,17 +246,31 @@ async function loadPodcasts() {
 }
 
 async function fetchWithFallback(url) {
+    console.log('🔍 Fetching:', url);
+    
     const methods = [
-        () => fetch(url).then(r => r.text()),
-        () => fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`).then(r => r.text()),
-        () => fetch(`https://corsproxy.io/?${encodeURIComponent(url)}`).then(r => r.text())
+        {
+            name: 'Direct',
+            fn: () => fetch(url).then(r => r.text())
+        },
+        {
+            name: 'AllOrigins',
+            fn: () => fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`).then(r => r.text())
+        },
+        {
+            name: 'CorsProxy',
+            fn: () => fetch(`https://corsproxy.io/?${encodeURIComponent(url)}`).then(r => r.text())
+        }
     ];
     
     for (const method of methods) {
         try {
-            return await method();
+            console.log(`  ⏳ Trying ${method.name}...`);
+            const result = await method.fn();
+            console.log(`  ✅ Success with ${method.name}`);
+            return result;
         } catch (error) {
-            console.warn('Fetch failed, trying next...', error);
+            console.warn(`  ❌ ${method.name} failed:`, error.message);
         }
     }
     throw new Error('All fetch methods failed');
@@ -702,24 +693,10 @@ function playEpisode(index) {
     // Set audio source
     audio.src = currentEpisode.audioUrl;
     
-    // Update player UI
-    playerTitleFull.textContent = currentEpisode.title;
-    playerPodcastFull.textContent = currentPodcast.name;
-    
-    // Set artwork (use RSS artwork if available)
-    const artworkUrl = currentPodcast.displayArtwork || currentPodcast.artwork_url;
-    if (artworkUrl) {
-        playerArtworkFull.innerHTML = `<img src="${artworkUrl}" alt="${currentPodcast.name}" onerror="this.parentElement.innerHTML='🎙️'">`;
-    } else {
-        playerArtworkFull.textContent = '🎙️';
-    }
-    
     // Update mini player
     updateMiniPlayer();
     
-    // Show player page and play
-    showPage(playerPage);
-    hideMiniPlayer(); // Hide mini player when on full player page
+    // Play
     audio.play();
 }
 
@@ -734,21 +711,16 @@ function togglePlayPause() {
 function updateProgress() {
     if (audio.duration) {
         const percent = (audio.currentTime / audio.duration) * 100;
-        progressFill.style.width = `${percent}%`;
-        progressHandle.style.left = `${percent}%`;
         miniProgressFill.style.width = `${percent}%`;
-        currentTimeEl.textContent = formatTime(audio.currentTime);
     }
 }
 
 function updateDuration() {
-    durationEl.textContent = formatTime(audio.duration);
+    // Not needed anymore since we removed the full player
 }
 
 function seek(e) {
-    const rect = progressBar.getBoundingClientRect();
-    const percent = (e.clientX - rect.left) / rect.width;
-    audio.currentTime = percent * audio.duration;
+    // Not needed anymore
 }
 
 function downloadEpisode(index) {
