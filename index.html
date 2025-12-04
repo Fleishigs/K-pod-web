@@ -11,6 +11,20 @@
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+    <!-- Top Navigation Bar -->
+    <nav class="top-nav">
+        <button class="nav-back-btn" id="navBackBtn">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M19 12H5M12 19l-7-7 7-7"/>
+            </svg>
+        </button>
+        <div class="nav-logo" id="navLogo">
+            <span class="logo-icon">🎙️</span>
+            <span class="logo-text">K-Pod</span>
+        </div>
+        <div class="nav-spacer"></div>
+    </nav>
+
     <!-- Home Page -->
     <div id="homePage" class="page active">
         <header class="header">
@@ -31,12 +45,6 @@
     <!-- Podcast Detail Page -->
     <div id="podcastPage" class="page">
         <div class="podcast-detail-header">
-            <button class="back-btn" id="backToPodcasts">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M19 12H5M12 19l-7-7 7-7"/>
-                </svg>
-                Back
-            </button>
             <button class="refresh-btn" id="refreshEpisodes">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
@@ -69,14 +77,6 @@
 
     <!-- Player Page -->
     <div id="playerPage" class="page player-page">
-        <div class="player-header">
-            <button class="back-btn" id="backFromPlayer">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M19 12H5M12 19l-7-7 7-7"/>
-                </svg>
-                Back
-            </button>
-        </div>
 
         <div class="player-content-full">
             <div id="playerArtworkFull" class="player-artwork-full"></div>
@@ -131,6 +131,34 @@
         </div>
 
         <audio id="audio"></audio>
+    </div>
+
+    <!-- Mini Player Bar (Android-style) -->
+    <div id="miniPlayer" class="mini-player hidden">
+        <div class="mini-player-content" id="miniPlayerClick">
+            <div class="mini-player-artwork" id="miniPlayerArtwork">🎙️</div>
+            <div class="mini-player-info">
+                <div class="mini-player-title" id="miniPlayerTitle">Episode Title</div>
+                <div class="mini-player-podcast" id="miniPlayerPodcast">Podcast Name</div>
+            </div>
+            <button class="mini-player-play-btn" id="miniPlayPause">
+                <svg id="miniPlayIcon" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M8 5v14l11-7z"/>
+                </svg>
+                <svg id="miniPauseIcon" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" class="hidden">
+                    <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/>
+                </svg>
+            </button>
+            <button class="mini-player-close-btn" id="miniPlayerClose">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+            </button>
+        </div>
+        <div class="mini-player-progress">
+            <div class="mini-player-progress-fill" id="miniProgressFill"></div>
+        </div>
     </div>
 
     <script src="app.js"></script>

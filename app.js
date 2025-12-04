@@ -4,6 +4,29 @@ let currentPodcast = null;
 let allEpisodes = [];
 let filteredEpisodes = [];
 let currentEpisode = null;
+let currentPage = 'home'; // Track current page
+
+// Pages
+const homePage = document.getElementById('homePage');
+const podcastPage = document.getElementById('podcastPage');
+const playerPage = document.getElementById('playerPage');
+
+// Navigation elements
+const topNav = document.querySelector('.top-nav');
+const navBackBtn = document.getElementById('navBackBtn');
+const navLogo = document.getElementById('navLogo');
+
+// Mini player elements
+const miniPlayer = document.getElementById('miniPlayer');
+const miniPlayerClick = document.getElementById('miniPlayerClick');
+const miniPlayerArtwork = document.getElementById('miniPlayerArtwork');
+const miniPlayerTitle = document.getElementById('miniPlayerTitle');
+const miniPlayerPodcast = document.getElementById('miniPlayerPodcast');
+const miniPlayPause = document.getElementById('miniPlayPause');
+const miniPlayIcon = document.getElementById('miniPlayIcon');
+const miniPauseIcon = document.getElementById('miniPauseIcon');
+const miniPlayerClose = document.getElementById('miniPlayerClose');
+const miniProgressFill = document.getElementById('miniProgressFill');
 
 // Pages
 const homePage = document.getElementById('homePage');
@@ -50,18 +73,27 @@ async function init() {
 }
 
 function setupEventListeners() {
-    // Back buttons - use setTimeout to ensure DOM is loaded
+    // Navigation
+    navBackBtn.addEventListener('click', handleBackButton);
+    navLogo.addEventListener('click', () => {
+        goHome();
+        updateNavigation();
+    });
+    
+    // Mini player
+    miniPlayerClick.addEventListener('click', openFullPlayer);
+    miniPlayPause.addEventListener('click', (e) => {
+        e.stopPropagation();
+        togglePlayPause();
+    });
+    miniPlayerClose.addEventListener('click', (e) => {
+        e.stopPropagation();
+        closeMiniPlayer();
+    });
+    
+    // Refresh button - use setTimeout to ensure DOM is loaded
     setTimeout(() => {
-        const backBtn = document.getElementById('backToPodcasts');
-        const backPlayerBtn = document.getElementById('backFromPlayer');
         const refreshBtn = document.getElementById('refreshEpisodes');
-        
-        if (backBtn) {
-            backBtn.addEventListener('click', goHome);
-        }
-        if (backPlayerBtn) {
-            backPlayerBtn.addEventListener('click', closePlayer);
-        }
         if (refreshBtn) {
             refreshBtn.addEventListener('click', refreshEpisodes);
         }
@@ -77,10 +109,14 @@ function setupEventListeners() {
     audio.addEventListener('play', () => {
         playIcon.classList.add('hidden');
         pauseIcon.classList.remove('hidden');
+        miniPlayIcon.classList.add('hidden');
+        miniPauseIcon.classList.remove('hidden');
     });
     audio.addEventListener('pause', () => {
         playIcon.classList.remove('hidden');
         pauseIcon.classList.add('hidden');
+        miniPlayIcon.classList.remove('hidden');
+        miniPauseIcon.classList.add('hidden');
     });
     
     progressBar.addEventListener('click', seek);
@@ -91,6 +127,42 @@ function setupEventListeners() {
 function showPage(page) {
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     page.classList.add('active');
+    
+    // Update current page state
+    if (page === homePage) currentPage = 'home';
+    else if (page === podcastPage) currentPage = 'podcast';
+    else if (page === playerPage) currentPage = 'player';
+    
+    updateNavigation();
+    
+    // Show/hide mini player based on page
+    if (currentPage === 'player') {
+        hideMiniPlayer();
+    } else if (currentEpisode && audio.src) {
+        showMiniPlayer();
+    }
+}
+
+function updateNavigation() {
+    // Show/hide back button based on page
+    if (currentPage === 'home') {
+        navBackBtn.classList.add('hidden');
+    } else {
+        navBackBtn.classList.remove('hidden');
+    }
+}
+
+function handleBackButton() {
+    if (currentPage === 'player') {
+        // Go back to podcast page if we have a podcast, otherwise home
+        if (currentPodcast) {
+            showPage(podcastPage);
+        } else {
+            goHome();
+        }
+    } else if (currentPage === 'podcast') {
+        goHome();
+    }
 }
 
 function goHome() {
@@ -104,8 +176,50 @@ function closePlayer() {
     if (currentPodcast) {
         showPage(podcastPage);
     } else {
-        showPage(homePage);
+        goHome();
     }
+}
+
+// Mini Player Functions
+function showMiniPlayer() {
+    if (currentPage !== 'player') {
+        miniPlayer.classList.remove('hidden');
+    }
+}
+
+function hideMiniPlayer() {
+    miniPlayer.classList.add('hidden');
+}
+
+function updateMiniPlayer() {
+    if (!currentEpisode) return;
+    
+    miniPlayerTitle.textContent = currentEpisode.title;
+    miniPlayerPodcast.textContent = currentPodcast?.name || '';
+    
+    // Update artwork
+    const artworkUrl = currentPodcast?.displayArtwork || currentPodcast?.artwork_url;
+    if (artworkUrl) {
+        miniPlayerArtwork.innerHTML = `<img src="${artworkUrl}" alt="${currentPodcast.name}" onerror="this.parentElement.innerHTML='🎙️'">`;
+    } else {
+        miniPlayerArtwork.textContent = '🎙️';
+    }
+    
+    showMiniPlayer();
+}
+
+function openFullPlayer() {
+    if (currentEpisode) {
+        showPage(playerPage);
+        hideMiniPlayer();
+    }
+}
+
+function closeMiniPlayer() {
+    audio.pause();
+    audio.src = '';
+    hideMiniPlayer();
+    currentEpisode = null;
 }
 
 function refreshEpisodes() {
@@ -278,19 +392,32 @@ async function loadEpisodes() {
 }
 
 async function fetchRSSFeed(url) {
-    console.log('Fetching RSS feed:', url);
+    console.log('🔍 Fetching RSS feed:', url);
     
-    // Try multiple CORS proxy services
+    // Try multiple CORS proxy services with different approaches
     const proxies = [
         // AllOrigins - usually most reliable
         {
             url: `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
             name: 'AllOrigins'
         },
+        // AllOrigins with get method
+        {
+            url: `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,
+            name: 'AllOrigins-JSON',
+            parseJSON: true
+        },
         // Corsproxy.io
         {
             url: `https://corsproxy.io/?${encodeURIComponent(url)}`,
             name: 'CorsProxy'
+        },
+        // RSS2JSON service
+        {
+            url: `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(url)}`,
+            name: 'RSS2JSON',
+            parseJSON: true,
+            convertFromJSON: true
         },
         // Codetabs proxy
         {
@@ -308,16 +435,17 @@ async function fetchRSSFeed(url) {
     
     for (const proxy of proxies) {
         try {
-            console.log(`Trying ${proxy.name}...`);
+            console.log(`  ⏳ Trying ${proxy.name}...`);
             
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+            const timeoutId = setTimeout(() => controller.abort(), 20000); // 20 second timeout
             
             const response = await fetch(proxy.url, {
                 signal: controller.signal,
                 headers: {
-                    'Accept': 'application/rss+xml, application/xml, text/xml, */*'
-                }
+                    'Accept': 'application/rss+xml, application/xml, text/xml, application/json, */*'
+                },
+                mode: 'cors'
             });
             
             clearTimeout(timeoutId);
@@ -326,23 +454,42 @@ async function fetchRSSFeed(url) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
             
-            const text = await response.text();
+            let text;
+            
+            if (proxy.parseJSON) {
+                const json = await response.json();
+                if (proxy.convertFromJSON && json.items) {
+                    // Convert RSS2JSON format to XML
+                    text = convertRSS2JSONToXML(json);
+                } else if (json.contents) {
+                    // AllOrigins JSON format
+                    text = json.contents;
+                } else {
+                    throw new Error('Unexpected JSON format');
+                }
+            } else {
+                text = await response.text();
+            }
             
             // Validate that we got XML
+            if (!text || text.trim().length === 0) {
+                throw new Error('Empty response');
+            }
+            
             if (!text.trim().startsWith('<')) {
                 throw new Error('Response is not XML');
             }
             
             // Check if it's actually RSS/XML
-            if (!text.includes('<rss') && !text.includes('<feed')) {
+            if (!text.includes('<rss') && !text.includes('<feed') && !text.includes('<?xml')) {
                 throw new Error('Response is not RSS/Atom feed');
             }
             
-            console.log(`✓ Success with ${proxy.name}`);
+            console.log(`  ✅ Success with ${proxy.name}`);
             return text;
             
         } catch (error) {
-            console.warn(`✗ ${proxy.name} failed:`, error.message);
+            console.warn(`  ❌ ${proxy.name} failed:`, error.message);
             lastError = error;
             
             // Continue to next proxy
@@ -351,7 +498,41 @@ async function fetchRSSFeed(url) {
     }
     
     // All methods failed
-    throw new Error(`Could not fetch RSS feed. Last error: ${lastError?.message || 'Unknown error'}`);
+    throw new Error(`Could not fetch RSS feed after trying all methods. Last error: ${lastError?.message || 'Unknown error'}`);
+}
+
+// Helper function to convert RSS2JSON format to basic XML
+function convertRSS2JSONToXML(json) {
+    let xml = '<?xml version="1.0" encoding="UTF-8"?><rss version="2.0"><channel>';
+    xml += `<title>${escapeXml(json.feed?.title || 'Podcast')}</title>`;
+    xml += `<description>${escapeXml(json.feed?.description || '')}</description>`;
+    if (json.feed?.image) {
+        xml += `<itunes:image href="${escapeXml(json.feed.image)}"/>`;
+    }
+    
+    json.items.forEach(item => {
+        xml += '<item>';
+        xml += `<title>${escapeXml(item.title || '')}</title>`;
+        xml += `<description>${escapeXml(item.description || '')}</description>`;
+        xml += `<pubDate>${escapeXml(item.pubDate || '')}</pubDate>`;
+        if (item.enclosure?.link) {
+            xml += `<enclosure url="${escapeXml(item.enclosure.link)}" type="${escapeXml(item.enclosure.type || 'audio/mpeg')}"/>`;
+        }
+        xml += '</item>';
+    });
+    
+    xml += '</channel></rss>';
+    return xml;
+}
+
+function escapeXml(text) {
+    if (!text) return '';
+    return text.toString()
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&apos;');
 }
 
 function parseRSSFeed(xmlText) {
@@ -533,8 +714,12 @@ function playEpisode(index) {
         playerArtworkFull.textContent = '🎙️';
     }
     
+    // Update mini player
+    updateMiniPlayer();
+    
     // Show player page and play
     showPage(playerPage);
+    hideMiniPlayer(); // Hide mini player when on full player page
     audio.play();
 }
 
@@ -551,6 +736,7 @@ function updateProgress() {
         const percent = (audio.currentTime / audio.duration) * 100;
         progressFill.style.width = `${percent}%`;
         progressHandle.style.left = `${percent}%`;
+        miniProgressFill.style.width = `${percent}%`;
         currentTimeEl.textContent = formatTime(audio.currentTime);
     }
 }
