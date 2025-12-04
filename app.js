@@ -71,7 +71,93 @@ document.addEventListener('DOMContentLoaded', init);
 
 async function init() {
     setupEventListeners();
+    setupRouting();
     await loadPodcasts();
+}
+
+// URL Routing System
+function setupRouting() {
+    // Handle browser back/forward buttons
+    window.addEventListener('popstate', (e) => {
+        if (e.state) {
+            handleRoute(e.state.page, e.state.podcastId, false);
+        } else {
+            handleRoute('home', null, false);
+        }
+    });
+    
+    // Handle initial page load with URL
+    handleInitialRoute();
+}
+
+function handleInitialRoute() {
+    const path = window.location.pathname;
+    const parts = path.split('/').filter(p => p);
+    
+    if (parts.length === 0 || parts[0] === '') {
+        // Home page
+        updateURL('home', null, false);
+    } else if (parts[0] === 'podcast' && parts[1]) {
+        // Podcast detail page
+        const podcastSlug = parts[1];
+        // Wait for podcasts to load, then open the podcast
+        const checkPodcasts = setInterval(() => {
+            if (podcasts.length > 0) {
+                clearInterval(checkPodcasts);
+                const podcast = podcasts.find(p => slugify(p.name) === podcastSlug || p.id === parseInt(podcastSlug));
+                if (podcast) {
+                    openPodcast(podcast.id);
+                }
+            }
+        }, 100);
+    }
+}
+
+function handleRoute(page, podcastId, updateHistory = true) {
+    switch (page) {
+        case 'home':
+            goHome();
+            break;
+        case 'podcast':
+            if (podcastId) {
+                openPodcast(podcastId);
+            }
+            break;
+        case 'nowplaying':
+            if (currentEpisode) {
+                openNowPlaying();
+            }
+            break;
+    }
+}
+
+function updateURL(page, podcastId = null, addToHistory = true) {
+    let url = '/';
+    let state = { page };
+    
+    if (page === 'podcast' && podcastId) {
+        const podcast = podcasts.find(p => p.id === podcastId);
+        if (podcast) {
+            const slug = slugify(podcast.name);
+            url = `/podcast/${slug}`;
+            state.podcastId = podcastId;
+        }
+    } else if (page === 'nowplaying') {
+        url = '/now-playing';
+    }
+    
+    if (addToHistory) {
+        window.history.pushState(state, '', url);
+    } else {
+        window.history.replaceState(state, '', url);
+    }
+}
+
+function slugify(text) {
+    return text
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '');
 }
 
 function setupEventListeners() {
@@ -199,16 +285,7 @@ function updateNavigation() {
 }
 
 function handleBackButton() {
-    if (currentPage === 'nowplaying') {
-        // Go back to podcast page if we have one, otherwise home
-        if (currentPodcast) {
-            showPage(podcastPage);
-        } else {
-            goHome();
-        }
-    } else if (currentPage === 'podcast') {
-        goHome();
-    }
+    window.history.back();
 }
 
 function goHome() {
@@ -216,6 +293,7 @@ function goHome() {
     currentPodcast = null;
     allEpisodes = [];
     filteredEpisodes = [];
+    updateURL('home');
 }
 
 function refreshEpisodes() {
@@ -305,24 +383,26 @@ async function fetchWithFallback(url) {
 
 // Fetch artwork from RSS feeds for all podcasts
 async function fetchAllPodcastArtwork() {
-    console.log('🎨 Fetching RSS artwork in parallel...');
+    console.log(`🎨 Fetching RSS artwork for ALL ${podcasts.length} podcasts in parallel...`);
     
-    // Process 3 podcasts at a time for speed
-    const batchSize = 3;
+    // Process 5 podcasts at a time for maximum speed
+    const batchSize = 5;
+    let processedCount = 0;
     
     for (let i = 0; i < podcasts.length; i += batchSize) {
         const batch = podcasts.slice(i, i + batchSize);
         
         // Process batch in parallel
-        await Promise.all(batch.map(async (podcast) => {
+        const promises = batch.map(async (podcast) => {
             try {
-                console.log(`  🔍 [${podcasts.indexOf(podcast) + 1}/${podcasts.length}] ${podcast.name}`);
+                const podcastNum = podcasts.indexOf(podcast) + 1;
+                console.log(`  🔍 [${podcastNum}/${podcasts.length}] ${podcast.name}`);
                 
                 const xmlText = await fetchRSSFeed(podcast.rss_url);
                 const { channelInfo } = parseRSSFeed(xmlText);
                 
                 if (channelInfo.artwork) {
-                    console.log(`  ✅ ${podcast.name}`);
+                    console.log(`  ✅ [${podcastNum}] ${podcast.name}`);
                     podcast.rssArtwork = channelInfo.artwork;
                     
                     const card = document.querySelector(`[data-podcast-id="${podcast.id}"] .podcast-artwork`);
@@ -331,25 +411,35 @@ async function fetchAllPodcastArtwork() {
                         card.innerHTML = `<img src="${channelInfo.artwork}" alt="${escapeHtml(podcast.name)}" loading="lazy" onerror="this.parentElement.innerHTML='<span style=\\'font-size: 3rem;\\'>🎙️</span>';">`;
                     }
                 } else {
-                    console.log(`  ⚠️ No artwork for ${podcast.name}`);
+                    console.log(`  ⚠️ [${podcastNum}] No artwork for ${podcast.name}`);
                     const card = document.querySelector(`[data-podcast-id="${podcast.id}"] .podcast-artwork`);
                     if (card) {
                         card.classList.remove('loading-artwork');
                     }
                 }
+                processedCount++;
             } catch (error) {
-                console.warn(`  ❌ ${podcast.name}: ${error.message}`);
+                const podcastNum = podcasts.indexOf(podcast) + 1;
+                console.warn(`  ❌ [${podcastNum}] ${podcast.name}: ${error.message}`);
                 const card = document.querySelector(`[data-podcast-id="${podcast.id}"] .podcast-artwork`);
                 if (card) {
                     card.classList.remove('loading-artwork');
                 }
+                processedCount++;
             }
-        }));
+        });
         
-        // Very short delay between batches
-        await new Promise(resolve => setTimeout(resolve, 100));
+        // Wait for all in batch to complete
+        await Promise.all(promises);
+        
+        console.log(`📊 Progress: ${processedCount}/${podcasts.length} podcasts processed`);
+        
+        // Very short delay between batches (only if there are more batches)
+        if (i + batchSize < podcasts.length) {
+            await new Promise(resolve => setTimeout(resolve, 50));
+        }
     }
-    console.log('✅ Finished fetching all RSS artwork');
+    console.log(`✅ Finished fetching ALL ${podcasts.length} RSS artwork images!`);
 }
 
 // Render Podcasts
@@ -382,6 +472,7 @@ async function openPodcast(id) {
     if (!currentPodcast) return;
     
     showPage(podcastPage);
+    updateURL('podcast', id);
     
     episodeSearch.value = '';
     episodeList.innerHTML = '';
@@ -778,15 +869,12 @@ function openNowPlaying() {
     if (!currentEpisode) return;
     updateNowPlayingPage();
     showPage(nowPlayingPage);
+    updateURL('nowplaying');
 }
 
 function closeNowPlaying() {
-    // Go back to previous page
-    if (currentPodcast) {
-        showPage(podcastPage);
-    } else {
-        goHome();
-    }
+    // Go back using browser history
+    window.history.back();
 }
 
 function togglePlayPause() {
