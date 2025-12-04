@@ -11,6 +11,10 @@
     <meta name="keywords" content="k-pod, k pod, jewish podcasts, torah podcasts, kiddush club, meaningful minute, torah anytime, jewish audio, shiurim, jewish learning, jewish inspiration, orthodox podcasts, frum podcasts">
     <meta name="author" content="K-Pod">
     <meta name="robots" content="index, follow">
+    <meta name="language" content="English">
+    <meta name="revisit-after" content="7 days">
+    <meta name="distribution" content="global">
+    <meta name="rating" content="general">
     <link rel="canonical" href="https://k-pod.netlify.app/">
     
     <!-- Open Graph / Facebook -->
@@ -30,8 +34,32 @@
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://api.allorigins.win">
+    <link rel="dns-prefetch" href="https://corsproxy.io">
+    <link rel="dns-prefetch" href="https://api.rss2json.com">
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
+    
+    <!-- Structured Data (Schema.org) for Rich Snippets -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": "K-Pod",
+      "description": "Stream Jewish podcasts including Kiddush Club, Torah Anytime, Meaningful Minute and more",
+      "url": "https://k-pod.netlify.app/",
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": "https://k-pod.netlify.app/?search={search_term_string}",
+        "query-input": "required name=search_term_string"
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": "K-Pod",
+        "url": "https://k-pod.netlify.app/"
+      }
+    }
+    </script>
     
     <!-- Google Analytics -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-LT1FQQNFM8"></script>
@@ -44,7 +72,8 @@
 </head>
 <body>
     <!-- Top Navigation Bar -->
-    <nav class="top-nav">
+    <header>
+    <nav class="top-nav" role="navigation" aria-label="Main navigation">
         <button class="nav-back-btn" id="navBackBtn">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M19 12H5M12 19l-7-7 7-7"/>
@@ -56,8 +85,10 @@
         </div>
         <div class="nav-spacer"></div>
     </nav>
+    </header>
 
     <!-- Home Page -->
+    <main id="mainContent" role="main">
     <div id="homePage" class="page active">
         <header class="header">
             <div class="header-glow"></div>
@@ -234,6 +265,7 @@
             </div>
         </div>
     </div>
+    </main>
 
     <!-- Mini Player Bar (Android-style) -->
     <div id="miniPlayer" class="mini-player hidden">
