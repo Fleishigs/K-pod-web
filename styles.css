@@ -25,7 +25,7 @@ body {
     overflow-x: hidden;
     min-height: 100vh;
     padding-top: 70px; /* Space for fixed top nav */
-    padding-bottom: 130px; /* Space for mini player + footer */
+    padding-bottom: 80px; /* Space for mini player */
 }
 
 /* Top Navigation Bar */
@@ -100,6 +100,46 @@ body {
 
 .nav-spacer {
     flex: 1;
+}
+
+/* Feedback Icon */
+.feedback-icon {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    background: transparent;
+    color: var(--text-secondary);
+    text-decoration: none;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.feedback-icon:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--accent);
+}
+
+.feedback-icon svg {
+    flex-shrink: 0;
+}
+
+.feedback-text {
+    white-space: nowrap;
+}
+
+/* Hide text on mobile, show only icon */
+@media (max-width: 640px) {
+    .feedback-text {
+        display: none;
+    }
+    
+    .feedback-icon {
+        padding: 8px;
+    }
 }
 
 /* Page Management */

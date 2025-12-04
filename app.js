@@ -861,12 +861,6 @@ function openNowPlaying() {
     nowPlayingPage.classList.add('active');
     document.body.classList.add('now-playing-open');
     
-    // Adjust footer for desktop sidebar
-    const footer = document.getElementById('siteFooter');
-    if (footer && window.innerWidth >= 1024) {
-        footer.style.right = '400px'; // Move left of sidebar
-    }
-    
     // On mobile, hide mini player when sidebar is open
     if (window.innerWidth < 1024) {
         hideMiniPlayer();
@@ -877,12 +871,6 @@ function closeNowPlaying() {
     // Close sidebar
     nowPlayingPage.classList.remove('active');
     document.body.classList.remove('now-playing-open');
-    
-    // Reset footer position
-    const footer = document.getElementById('siteFooter');
-    if (footer) {
-        footer.style.right = '0';
-    }
     
     // Show mini player again
     if (currentEpisode && audio.src) {
@@ -923,20 +911,10 @@ function seek(e) {
 
 function showMiniPlayer() {
     miniPlayer.classList.remove('hidden');
-    // Adjust footer position
-    const footer = document.getElementById('siteFooter');
-    if (footer) {
-        footer.style.bottom = '80px'; // Move above mini player
-    }
 }
 
 function hideMiniPlayer() {
     miniPlayer.classList.add('hidden');
-    // Reset footer position
-    const footer = document.getElementById('siteFooter');
-    if (footer) {
-        footer.style.bottom = '0';
-    }
 }
 
 function closeMiniPlayer() {
